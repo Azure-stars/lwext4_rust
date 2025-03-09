@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::{env, fs};
-
+use std::thread::sleep;
+use std::time::Duration;
 fn main() {
     let c_path = PathBuf::from("c/lwext4")
         .canonicalize()
@@ -31,12 +32,12 @@ fn main() {
         )
         .unwrap();
     }
-
+    let mut retries = 1;
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let lwext4_lib = &format!("lwext4-{}", arch);
     let lwext4_lib_path = &format!("c/lwext4/lib{}.a", lwext4_lib);
     if !Path::new(lwext4_lib_path).exists() {
-        let status = Command::new("make")
+        let mut status = Command::new("make")
             .args(&[
                 "musl-generic",
                 "-C",
@@ -45,6 +46,21 @@ fn main() {
             .arg(&format!("ARCH={}", arch))
             .status()
             .expect("failed to execute process: make lwext4");
+        while !status.success() && retries > 0 {
+            println!("Make failed, retrying in 2 seconds...");
+            sleep(Duration::new(2, 0)); // 等待 2 秒
+            status = Command::new("make")
+                .args(&[
+                    "musl-generic",
+                    "-C",
+                    c_path.to_str().expect("invalid path of lwext4"),
+                ])
+                .arg(&format!("ARCH={}", arch))
+                .status()
+                .expect("failed to execute process: make lwext4");
+        
+            retries -= 1; // 减少重试次数
+        }
         assert!(status.success());
 
         let cc = &format!("{}-linux-musl-gcc", arch);
