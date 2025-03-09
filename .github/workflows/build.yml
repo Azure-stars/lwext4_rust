@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         arch: [riscv64]
-        rust-toolchain: [nightly, nightly-2025-01-18]
+        rust-toolchain: [nightly, nightly-2024-01-31]
     steps:
     - uses: actions/checkout@v3
     - uses: actions-rs/toolchain@v1
