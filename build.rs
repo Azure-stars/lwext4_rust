@@ -58,7 +58,6 @@ fn main() {
                 .arg(&format!("ARCH={}", arch))
                 .status()
                 .expect("failed to execute process: make lwext4");
-        
             retries -= 1; // 减少重试次数
         }
         assert!(status.success());
