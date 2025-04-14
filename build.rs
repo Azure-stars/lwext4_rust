@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitStatus};
 use std::{env, fs};
-
+use std::thread::sleep;
+use std::time::Duration;
 fn main() {
     let c_path = PathBuf::from("c/lwext4")
         .canonicalize()
@@ -31,22 +32,40 @@ fn main() {
         )
         .unwrap();
     }
-
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let lwext4_lib = &format!("lwext4-{}", arch);
     let lwext4_lib_path = &format!("c/lwext4/lib{}.a", lwext4_lib);
     if !Path::new(lwext4_lib_path).exists() {
-        let status = Command::new("make")
+        let mut retries = 3; // 设置最大重试次数
+        let mut status: Result<ExitStatus, std::io::Error> = Command::new("make")
             .args(&[
                 "musl-generic",
                 "-C",
                 c_path.to_str().expect("invalid path of lwext4"),
             ])
             .arg(&format!("ARCH={}", arch))
-            .status()
-            .expect("failed to execute process: make lwext4");
-        assert!(status.success());
-
+            .status(); // 返回 Result 类型
+        
+        while let Err(_) = status {
+            if retries > 0 {
+                println!("Make failed, retrying in 2 seconds...");
+                sleep(Duration::new(2, 0)); // 等待 2 秒
+                status = Command::new("make")
+                    .args(&[
+                        "musl-generic",
+                        "-C",
+                        c_path.to_str().expect("invalid path of lwext4"),
+                    ])
+                    .arg(&format!("ARCH={}", arch))
+                    .status(); // 重新执行 make 命令
+                retries -= 1; // 减少重试次数
+            } else {
+                // 如果重试次数用完，还失败了
+                println!("Make failed after retries, aborting.");
+                panic!("failed to execute process: make lwext4");
+            }
+        }
+        
         let cc = &format!("{}-linux-musl-gcc", arch);
         let output = Command::new(cc)
             .args(["-print-sysroot"])
